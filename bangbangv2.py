@@ -1,13 +1,20 @@
 import time
 import cv2
 import os
-import requests
+
 import numpy as np
 import random
 import colorsys
+import socket
 
-numberOfLeds = 200
-ip = "192.168.1.85"
+
+#Change these two variables to fit your set up
+numberOfLeds = 450
+ip = "192.168.1.172"
+WLED_PORT = 21324
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+protocol = 2
+timeout = 1
 white = (255,255,255)
 black = (0,0,0)
 
@@ -42,13 +49,13 @@ class Rocket:
         #bangcolor = (r, g, b)
     
     def step(self):
-        if self.life == 0:
+        if self.life < 0:
             self.x = -500
             self.delay -= 1
             if self.delay == 0:
                 self.reset()
         else:
-            self.life -= 1
+            self.life -= 0.3
         
     
 
@@ -69,29 +76,37 @@ def read_arrays_from_file(filename):
 
   return list1, list2
 
+#Method to set all LEDs to a specific color
 def allColor(color, count = 0) :
     j = 0
-    radiances = []
+    
+    data = bytearray([protocol, timeout])
     while j < count :
         #print(normx[i]
-        radiances.append(color)
+        data += bytearray([color[0], color[1], color[2]])
+        
         j += 1
-    r = requests.post('http://' + ip + '/json/state', json={"seg":{"i":radiances}})
+    data[1] = 255
+    sock.sendto(data, (ip, WLED_PORT))
+    #print(data, (ip, WLED_PORT))
     return
     
 
+#Method for setting and individual LED
 def oneLed(color, index = 0,  count = 0) :
     j = 0
-    radiances = []
+    data = bytearray([protocol, timeout])
     while j < count :
         #print(normx[i]
         if(index == j) :
-            radiances.append(color)
+            data += bytearray([color[0], color[1], color[2]])
         else:
-            radiances.append(black)
+            data += bytearray([0, 0, 0])
             
         j += 1
-    r = requests.post('http://' + ip + '/json/state', json={"seg":{"i":radiances}})
+    data[1] = 255
+    sock.sendto(data, (ip, WLED_PORT))
+    #print(data, (ip, WLED_PORT))
     return
 
 def findHotSpot(image, window) :
@@ -153,7 +168,7 @@ y = []
     #count += 1
 
 #write_arrays_to_file(x, y, "calibration.txt")
-x,y = read_arrays_from_file("calibration.txt")
+x,y = read_arrays_from_file("calibrationfixed.txt")
     
 normx = normalize(x, 0, 1)
 normy = normalize(y, 0, 1)
@@ -213,7 +228,7 @@ while rewind > 0 :
     cv2.imshow("Background", inputimg)
     cv2.imshow("blur", img2)
     cv2.waitKey(1)
-    radiances = []
+    data = bytearray([protocol, timeout])
     
     for j in range(numberOfLeds) :
         mx = max(min(int(normy[j]*img2.shape[0]),img2.shape[0]-1),0)
@@ -224,15 +239,17 @@ while rewind > 0 :
         #color[1] = int(color[1]**3/255**2)
         #color[2] = int(color[2]**3/255**2)
         #print([color[2],color[1],color[0]])
-        radiances.append([str(color[2]),str(color[1]),str(color[0])])
+        #radiances.append([str(color[2]),str(color[1]),str(color[0])])
+        data += bytearray([color[2], color[1], color[0]])
             
-    r = requests.post('http://' + ip + '/json/state', json={"seg":{"i":radiances}})
+    data[1] = 255
+    sock.sendto(data, (ip, WLED_PORT))
     
     #time.sleep(1)
     #ret, cur = cam.read()
     #cv2.imshow("Background", cur)
     #cv2.waitKey(1)
-    time.sleep(0.0105)
+    time.sleep(0.0205)
     #duration += 1
         #radius += 1
         #print(radius)
