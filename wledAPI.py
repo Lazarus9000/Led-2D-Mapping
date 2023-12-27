@@ -29,8 +29,10 @@ def wled(newip, Leds, newprotocol, calibrationfile):
     y.extend(ty)
     normx.extend(normalize(x, 0, 1))
     normy.extend(normalize(y, 0, 1))
-        
+
+    global ip
     ip = "192.168.1.172"
+    global numberOfLeds
     numberOfLeds = Leds
     global protocol
     protocol = newprotocol
@@ -111,13 +113,16 @@ def colors(colors):
         data[1] = 255
         sock.sendto(data, (ip, WLED_PORT))
 
-def image(img):
+def image(img, brightness):
     pixels = []
     for j in range(numberOfLeds) :
         #map from image to leds
         mx = max(min(int(normy[j]*img.shape[0]),img.shape[0]-1),0)
         my = max(min(int(normx[j]*img.shape[1]),img.shape[1]-1),0)
         color = img[mx, my]
+        color[0] = color[0]*(100/brightness)
+        color[1] = color[1]*(100/brightness)
+        color[2] = color[2]*(100/brightness)
         pixels.append(color)
         
     

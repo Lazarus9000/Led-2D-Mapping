@@ -17,4 +17,4 @@ image = np.zeros((400, 400, 3), dtype='uint8')
 inputimg = cv2.imread(imagepath)
 img2 = cv2.GaussianBlur(inputimg,(0,0),10,cv2.BORDER_DEFAULT)
 
-wledAPI.image(img2)
+wledAPI.image(img2,50)
