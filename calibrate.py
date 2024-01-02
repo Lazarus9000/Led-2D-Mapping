@@ -3,10 +3,11 @@ import cv2
 import os
 import requests
 
+
 #Change these two variables to fit your set up
-numberOfLeds = 200
-ip = "192.168.1.85
-"
+numberOfLeds = 450
+ip = "192.168.1.172"
+
 white = [255,255,255]
 black = [0,0,0]
 
