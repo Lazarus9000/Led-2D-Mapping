@@ -12,7 +12,8 @@ bangbangv3.py - Generates images of fireworks
 
 
 # My setup for calibration
-Canon camera connected to laptop. Bear in mind that the point of view of the camera defines the location of the point of view for the mapped image.  
+Canon camera connected to laptop. Any integrated webcam or usb webcam will suffice, I just like to be able to have more control over focus and framing. Bear in mind that the point of view of the camera defines the location of the point of view for the mapped image.  
+![20221222_222000](https://github.com/Lazarus9000/led2dcalibration/assets/16942446/820fbfaf-6ebd-4b11-bdb2-641eeb7db422)
 
 
 # Setup for running 
