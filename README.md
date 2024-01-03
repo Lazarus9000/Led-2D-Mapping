@@ -11,3 +11,10 @@ sne.py - Generates images of snowballs falling down
 bangbangv3.py - Generates images of fireworks  
 
 
+# My setup for calibration
+Canon camera connected to laptop. Bear in mind that the point of view of the camera defines the location of the point of view for the mapped image.  
+
+
+# Setup for running 
+I have a server running a container executing e.g. fireworks or snow script, sending the pixel values to an ESP32 which control the LEDs. 
+I am considering making an implementation which runs on a raspi, directly connected to the LEDs, to avoid having to have a laptop/desktop/server running and support animated output.

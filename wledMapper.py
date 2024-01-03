@@ -29,11 +29,12 @@ class Mapper:
     black = [0,0,0]
 
     def __init__(self, newip, Leds, newprotocol, calibrationfile):
-        tx,ty = self.read_arrays_from_file(calibrationfile)
-        self.x.extend(tx)
-        self.y.extend(ty)
-        self.normx.extend(self.normalize(self.x, 0, 1))
-        self.normy.extend(self.normalize(self.y, 0, 1))
+        if calibrationfile != "":
+            tx,ty = self.read_arrays_from_file(calibrationfile)
+            self.x.extend(tx)
+            self.y.extend(ty)
+            self.normx.extend(self.normalize(self.x, 0, 1))
+            self.normy.extend(self.normalize(self.y, 0, 1))
 
         self.ip = "192.168.1.172"
         self.numberOfLeds = Leds

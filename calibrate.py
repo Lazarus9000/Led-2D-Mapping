@@ -1,48 +1,9 @@
 import time
 import cv2
 import os
-import requests
 
-
-#Change these two variables to fit your set up
-numberOfLeds = 450
-ip = "192.168.1.172"
-
-white = [255,255,255]
-black = [0,0,0]
-
-#Method to write arrays to list, authored by chatGPT 8]
-def write_arrays_to_file(list1, list2, filename):
-  with open(filename, 'w') as f:
-    for i in range(len(list1)):
-      f.write(str(list1[i]) + ',' + str(list2[i]) + '\n')
-
-#Method to set all LEDs to a specific color
-def allColor(color, count = 0) :
-    j = 0
-    radiances = []
-    while j < count :
-        #print(normx[i]
-        radiances.append(color)
-        j += 1
-    r = requests.post('http://' + ip + '/json/state', json={"seg":{"i":radiances}})
-    return
-    
-
-#Method for setting and individual LED
-def oneLed(color, index = 0,  count = 0) :
-    j = 0
-    radiances = []
-    while j < count :
-        #print(normx[i]
-        if(index == j) :
-            radiances.append(color)
-        else:
-            radiances.append(black)
-            
-        j += 1
-    r = requests.post('http://' + ip + '/json/state', json={"seg":{"i":radiances}})
-    return
+#Initiate wledMapper
+wled = Mapper("192.168.1.172", 450, "UDP", "")
 
 #Method for finding location of LED
 def findHotSpot(image, window) :
@@ -60,12 +21,12 @@ def findHotSpot(image, window) :
     cv2.waitKey(1)
     return(maxLoc)
      
-
+#Change number in videocapture if more than one camera is connected to system
 cam = cv2.VideoCapture(0)
 
 
 #Test that all LEDs light up and tage a background image
-allColor(white, numberOfLeds)
+wled.allColor(wled.white, wled.numberOfLeds)
 time.sleep(0.500)
 ret, bg = cam.read()
 
@@ -82,7 +43,7 @@ y = []
 
 for count in range(numberOfLeds):
     #Turn on LED's one at a time
-    oneLed(white, count, numberOfLeds)
+    wled.oneLed(wled.white, count, wled.numberOfLeds)
     
     #For my setup I found that I can't go lower than 0.4 second delay
     #Going lower results in the camera taking pictures of other LED's than the intended oneLed
@@ -99,4 +60,3 @@ for count in range(numberOfLeds):
     y.append(hotSpotPos[1])    
 
 write_arrays_to_file(x, y, "calibration.txt")
-    
