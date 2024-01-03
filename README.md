@@ -5,15 +5,19 @@ Python library in wledMapper.py implements functions map colors of pixels on WLE
 In order to achieve this calibration data must be obtained, which can be done with a camera and utilizing the library to turn on pixels one at a time and locate it using image processing, as implemented in calibrate.py. This outputs the calibration data into a file which can be reused - I've been able to reuse mine across an entire winter season.  
 The library implements the JSON (https://kno.wled.ge/interfaces/json-api/) and UDP (https://kno.wled.ge/interfaces/udp-realtime/) interfaces on WLED controllers. May add more later, but currently the UDP interface sufficiently supports my needs. The JSON interface was limited in the amount of LEDS I could make it handle, and topped out at ~250 (likely 256, but I don't think I verified if it was that exact value).
 
-Currently there are a few working examples  
+I've written a few examples utilizing the library  
 Image.py - Takes a path to an image (jpg and png tested) as input and maps that onto LEDS  
-sne.py - Generates images of snowballs falling down  
-bangbangv3.py - Generates images of fireworks  
+sne.py - Generates images of snowballs falling down https://youtu.be/DdPqfmr4xdM  
+bangbangv3.py - Generates images of fireworks https://youtu.be/MvkPpxqalhs 
 
 
 # My setup for calibration
 Canon camera connected to laptop. Any integrated webcam or usb webcam will suffice, I just like to be able to have more control over focus and framing. Bear in mind that the point of view of the camera defines the location of the point of view for the mapped image.  
 ![20221222_222000](https://github.com/Lazarus9000/led2dcalibration/assets/16942446/820fbfaf-6ebd-4b11-bdb2-641eeb7db422)
+
+Early video of proof of concept  
+[![Proof of concept](http://img.youtube.com/vi/gUEcQgL-Y4M/0.jpg)](http://www.youtube.com/watch?v=gUEcQgL-Y4M)
+
 
 
 # Setup for running 
