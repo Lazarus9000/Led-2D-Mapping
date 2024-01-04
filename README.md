@@ -11,8 +11,12 @@ sne.py - Generates images of snowballs falling down https://youtu.be/DdPqfmr4xdM
 bangbangv3.py - Generates images of fireworks https://youtu.be/MvkPpxqalhs 
 
 
-# My setup for calibration
-Canon camera connected to laptop. Any integrated webcam or usb webcam will suffice, I just like to be able to have more control over focus and framing. Bear in mind that the point of view of the camera defines the location of the point of view for the mapped image.  
+# Creating calibration data
+The setup relies a laptop running the python scripts sending commands to the api's on a micro on the same wifi network. In order to make the calibration the camera needs to not move during the process and must be able to view the entire chain of LEDs. 
+![image](https://github.com/Lazarus9000/led2dcalibration/assets/16942446/acdfa831-5200-4d75-b62f-58edecc71868)
+
+
+My setup for calibration uses my canon camera connected to a laptop. Any integrated webcam or usb webcam will suffice, I just like to be able to have more control over focus and framing. Bear in mind that the point of view of the camera defines the location of the point of view for the mapped image.  
 ![20221222_222000](https://github.com/Lazarus9000/led2dcalibration/assets/16942446/820fbfaf-6ebd-4b11-bdb2-641eeb7db422)
 
 Early video of proof of concept  
