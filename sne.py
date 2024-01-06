@@ -15,12 +15,12 @@ class Snow:
         self.speed = var3
 
 snow_list = []
-snow_list.append(Snow(50, -1, 5))
-snow_list.append(Snow(150, -100, 5))
-snow_list.append(Snow(250, 100, 5))
-snow_list.append(Snow(350, 500, 5))
-snow_list.append(Snow(100, 250, 5))
-snow_list.append(Snow(300, -200, 5))
+snow_list.append(Snow(50, -1, 1))
+snow_list.append(Snow(150, -100, 2))
+snow_list.append(Snow(250, 100, 3))
+snow_list.append(Snow(350, 500, 1))
+snow_list.append(Snow(100, 250, 2))
+snow_list.append(Snow(300, -200, 3))
 
 rewind = 60
 
