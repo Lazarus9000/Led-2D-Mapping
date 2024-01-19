@@ -7,12 +7,17 @@ The library implements the JSON (https://kno.wled.ge/interfaces/json-api/) and U
 
 I've written a few examples utilizing the library  
 Image.py - Takes a path to an image (jpg and png tested) as input and maps that onto LEDS  
+
 sne.py - Generates images of snowballs falling down https://youtu.be/DdPqfmr4xdM  
+![Snow_LED_chain](https://github.com/Lazarus9000/Led-2D-Mapping/assets/16942446/627a164d-1817-4835-ab53-a078ad05d186)
+
+
 bangbangv3.py - Generates images of fireworks https://youtu.be/MvkPpxqalhs 
+![Fireworks_mapped_to_LEDs](https://github.com/Lazarus9000/Led-2D-Mapping/assets/16942446/4b5517f0-5524-4572-997a-08111de4ed59)
 
 
-# Creating calibration data
-The setup relies a laptop running the python scripts sending commands to the api's on a micro on the same wifi network. In order to make the calibration the camera needs to not move during the process and must be able to view the entire chain of LEDs. 
+# Creating mapping
+The setup relies a laptop running the python scripts sending commands to the api's on a micro on the same wifi network. In order to make the mapping, the camera needs to not move during the process and must be able to view the entire chain of LEDs. 
 ![image](https://github.com/Lazarus9000/led2dcalibration/assets/16942446/acdfa831-5200-4d75-b62f-58edecc71868)
 
 
