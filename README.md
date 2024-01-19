@@ -1,5 +1,5 @@
-# led2dcalibration
-I wanted to be able to map images onto my LED chain which uses a ESP32 with WLED for control. After searching I couldn't find a solution, so I made an attempt myself.
+# 2D Led Mapping
+I wanted to be able to map images onto my LED chain, which uses a ESP32 with WLED for control. After searching I couldn't find a solution, so I made one myself.
 
 Python library in wledMapper.py implements functions map colors of pixels on WLED chain to a picture.  
 In order to achieve this calibration data must be obtained, which can be done with a camera and utilizing the library to turn on pixels one at a time and locate it using image processing, as implemented in calibrate.py. This outputs the calibration data into a file which can be reused - I've been able to reuse mine across an entire winter season.  
