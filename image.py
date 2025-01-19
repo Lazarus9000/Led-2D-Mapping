@@ -22,4 +22,4 @@ inputimg = cv2.imread(imagepath)
 #Blur to avoid aliasing when projecting onto the lower resolution LEDs
 img2 = cv2.GaussianBlur(inputimg,(0,0),10,cv2.BORDER_DEFAULT)
 
-wled.image(img2,50)
+wled.image(img2,25)
