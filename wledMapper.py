@@ -122,9 +122,9 @@ class Mapper:
             mx = max(min(int(self.normy[j]*img.shape[0]),img.shape[0]-1),0)
             my = max(min(int(self.normx[j]*img.shape[1]),img.shape[1]-1),0)
             color = img[mx, my]
-            color[0] = color[0]*(100/brightness)
-            color[1] = color[1]*(100/brightness)
-            color[2] = color[2]*(100/brightness)
+            color[0] = color[0]*(brightness/100)
+            color[1] = color[1]*(brightness/100)
+            color[2] = color[2]*(brightness/100)
             pixels.append(color)
             
         
