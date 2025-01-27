@@ -15,6 +15,12 @@ sne.py - Generates images of snowballs falling down https://youtu.be/DdPqfmr4xdM
 bangbangv3.py - Generates images of fireworks https://youtu.be/MvkPpxqalhs 
 ![Fireworks_mapped_to_LEDs](https://github.com/Lazarus9000/Led-2D-Mapping/assets/16942446/4b5517f0-5524-4572-997a-08111de4ed59)
 
+[But can it run doom?](https://youtu.be/DqW8ubmIXaI)\
+Yeah, but as expected the resolution and space between the LEDs make it a pretty bad display for it :) You can try for yourself using the doom.py, but you need to provide your own WAD
+
+Wrote two scripts specifically for gradient colors moving slowly.\ 
+Waterfall.py will continuously have an image falling, followed by a version of it which has been vertically flipped to provide a continuous gradient moving over the chain\
+Rotator.py will scale an image and continuously rotate it
 
 # Creating mapping
 The setup relies a laptop running the python scripts sending commands to the api's on a micro on the same wifi network. In order to make the mapping, the camera needs to not move during the process and must be able to view the entire chain of LEDs. 
