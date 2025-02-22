@@ -17,7 +17,7 @@ def rotate(image, angle, center = None, scale = 1.0):
 
     return rotated
 
-imagepath = "dkdark.png"
+imagepath = "gradient.png"
 
 #Read image path from args
 if len(sys.argv) == 2:
