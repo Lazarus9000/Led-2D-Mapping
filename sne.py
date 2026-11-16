@@ -3,10 +3,10 @@ import cv2
 import numpy as np
 import random
 import colorsys
-from wledMapper import Mapper
+from wledMapper import Mapper, preview
 
 
-wled = Mapper("192.168.1.172", 450, "UDP", "calibration.txt")
+wled = Mapper("192.168.1.172", 600,"UDP", "calibration.txt")
 
 class Snow:
     def __init__(self, var1, var2, var3):
@@ -37,6 +37,7 @@ while rewind > 0 :
     
     inputimg = image
     img2 = cv2.GaussianBlur(inputimg,(0,0),10,cv2.BORDER_DEFAULT)
+    preview("blur", img2)
     wled.image(img2,100)
     time.sleep(0.0105)
         

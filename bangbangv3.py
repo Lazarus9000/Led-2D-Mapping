@@ -3,10 +3,10 @@ import cv2
 import numpy as np
 import random
 import colorsys
-from wledMapper import Mapper
+from wledMapper import Mapper, preview
 
 
-wled = Mapper("192.168.1.172", 450, "UDP", "calibration.txt")
+wled = Mapper("192.168.1.172", 600,"UDP", "calibration.txt")
 
 
 class Rocket:
@@ -110,9 +110,8 @@ while rewind > 0 :
     
     inputimg = image
     img2 = cv2.GaussianBlur(inputimg,(0,0),10,cv2.BORDER_DEFAULT)
-    #cv2.imshow("Background", inputimg)
-    #cv2.imshow("blur", img2)
-    #cv2.waitKey(1)
+    preview("Background", inputimg)
+    preview("blur", img2)
     wled.image(img2,100)
 
     

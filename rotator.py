@@ -1,7 +1,7 @@
 import time
 import cv2
 import numpy as np
-from wledMapper import Mapper
+from wledMapper import Mapper, preview, arguments
 import sys
 
 #https://stackoverflow.com/a/32929315
@@ -20,11 +20,13 @@ def rotate(image, angle, center = None, scale = 1.0):
 imagepath = "gradient.png"
 
 #Read image path from args
-if len(sys.argv) == 2:
-    imagepath = sys.argv[1]
+#(the --preview switch is handled by wledMapper and is not counted here)
+args = arguments()
+if len(args) == 1:
+    imagepath = args[0]
 
 #Initiate wledMapper
-wled = Mapper("192.168.1.172", 450, "UDP", "calibration.txt")
+wled = Mapper("192.168.1.172", 600,"UDP", "calibration.txt")
 
 #Load image
 inputimg = cv2.imread(imagepath)
@@ -37,5 +39,4 @@ while 1 > 0:
 	img3 = rotate(img2, angle, scale = 2)
 	wled.image(img3,25)
 	angle = angle + 0.1
-	cv2.imshow("Background", img3)
-	cv2.waitKey(1)
+	preview("Background", img3)

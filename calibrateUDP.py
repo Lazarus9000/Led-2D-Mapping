@@ -1,16 +1,15 @@
 import time
 import cv2
 import os
-import socket
+from wledMapper import Mapper, preview
 
 
 #Change these two variables to fit your set up
-numberOfLeds = 450
+numberOfLeds = 600
 ip = "192.168.1.172"
-WLED_PORT = 21324
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-protocol = 2
-timeout = 1
+
+#The UDP sending is done by wledMapper, which also handles chains of more than 490 LEDs
+wled = Mapper(ip, numberOfLeds, "UDP", "")
 
 white = [255,255,255]
 black = [0,0,0]
@@ -23,35 +22,13 @@ def write_arrays_to_file(list1, list2, filename):
 
 #Method to set all LEDs to a specific color
 def allColor(color, count = 0) :
-    j = 0
-    
-    data = bytearray([protocol, timeout])
-    while j < count :
-        #print(normx[i]
-        data += bytearray([color[0], color[1], color[2]])
-        
-        j += 1
-    data[1] = 255
-    sock.sendto(data, (ip, WLED_PORT))
-    #print(data, (ip, WLED_PORT))
+    wled.allColor(color, count)
     return
-    
+
 
 #Method for setting and individual LED
 def oneLed(color, index = 0,  count = 0) :
-    j = 0
-    data = bytearray([protocol, timeout])
-    while j < count :
-        #print(normx[i]
-        if(index == j) :
-            data += bytearray([color[0], color[1], color[2]])
-        else:
-            data += bytearray([0, 0, 0])
-            
-        j += 1
-    data[1] = 255
-    sock.sendto(data, (ip, WLED_PORT))
-    #print(data, (ip, WLED_PORT))
+    wled.oneLed(color, index, count)
     return
 
 #Method for finding location of LED
@@ -66,8 +43,7 @@ def findHotSpot(image, window) :
     cv2.circle(image, maxLoc, 25, (255, 0, 0), 2)
     # display the results of our newly improved method
     
-    cv2.imshow(window, image)
-    cv2.waitKey(1)
+    preview(window, image)
     return(maxLoc)
      
 
@@ -83,8 +59,7 @@ ret, bg = cam.read()
 #img_name = f"./images/bg.png"
 #cv2.imwrite(img_name, bg)
 
-cv2.imshow("Background", bg)
-cv2.waitKey(1)
+preview("Background", bg)
 
 #Arrays for holding LED positions
 x = []

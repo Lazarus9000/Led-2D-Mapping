@@ -4,6 +4,7 @@ import noise
 import cv2
 import time
 import requests
+from wledMapper import preview
 
 def read_arrays_from_file(filename):
   list1 = []
@@ -95,8 +96,7 @@ def update(frame):
     # Set the image data and redraw the plot
     #ax.imshow(rgb)
     image = rgb[:, :, ::-1]
-    cv2.imshow("blur", image)
-    cv2.waitKey(1)
+    preview("blur", image)
     
     radiances = []
     

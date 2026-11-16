@@ -1,0 +1,727 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LED mapping viewer</title>
+<style>
+  :root {
+    --bg: #14161a; --panel: #1d2026; --panel2: #262a32; --line: #353a45;
+    --text: #e6e8ec; --muted: #9aa1ad; --accent: #5aa9ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.4 system-ui, "Segoe UI", sans-serif;
+         display: flex; flex-direction: column; }
+  header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px;
+           background: var(--panel); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 15px; margin: 0 8px 0 0; font-weight: 600; }
+  header .name { color: var(--muted); margin-left: auto; overflow: hidden; text-overflow: ellipsis;
+                 white-space: nowrap; max-width: 40ch; }
+  button, .btn { background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+           border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; }
+  button:hover:not(:disabled), .btn:hover { border-color: var(--accent); }
+  button:disabled { opacity: .4; cursor: default; }
+  button.primary { background: #2b63a8; border-color: #2b63a8; }
+  input[type=file] { display: none; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #stage { flex: 1; position: relative; min-width: 0; min-height: 280px; }
+  canvas#cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  #empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+           text-align: center; color: var(--muted); padding: 24px; pointer-events: none; }
+  #empty div { max-width: 46ch; }
+  #empty b { color: var(--text); }
+  #tip { position: absolute; display: none; pointer-events: none; background: #000d; color: var(--text);
+         border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12px;
+         white-space: pre; z-index: 5; }
+  aside { width: 330px; background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto;
+          padding: 12px; display: flex; flex-direction: column; gap: 14px; }
+  section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+               margin: 0 0 6px; font-weight: 600; }
+  .row { display: flex; align-items: center; gap: 8px; }
+  .row + .row { margin-top: 6px; }
+  input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+  #thrVal { font-variant-numeric: tabular-nums; width: 4ch; text-align: right; font-weight: 600; }
+  canvas#hist { width: 100%; height: 56px; display: block; margin-top: 6px; background: var(--panel2);
+                border-radius: 4px; }
+  select { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px;
+           padding: 5px 6px; font: inherit; width: 100%; }
+  label.chk { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+  .counts { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+  .counts span:nth-child(even) { font-variant-numeric: tabular-nums; text-align: right; font-weight: 600; }
+  .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; }
+  .hint { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+  #detail table { border-collapse: collapse; width: 100%; }
+  #detail td { padding: 1px 0; vertical-align: top; }
+  #detail td:first-child { color: var(--muted); padding-right: 10px; white-space: nowrap; }
+  #detail td:last-child { font-variant-numeric: tabular-nums; text-align: right; }
+  #detail td.sub { padding-left: 12px; }
+  #detail .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  #rejected { display: flex; flex-wrap: wrap; gap: 4px; max-height: 150px; overflow-y: auto; }
+  #rejected button { padding: 1px 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
+  @media (max-width: 820px) {
+    main { flex-direction: column; }
+    #stage { flex: none; height: 58vh; }
+    aside { width: auto; border-left: 0; border-top: 1px solid var(--line); overflow: visible; }
+    body { height: auto; min-height: 100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>LED mapping viewer</h1>
+  <label class="btn primary">Open calibration<input type="file" id="fileCal" accept=".txt,.json,.csv,text/plain,application/json"></label>
+  <label class="btn">Background image<input type="file" id="fileBg" accept="image/*"></label>
+  <button id="btnUndo" disabled title="Ctrl+Z">Undo</button>
+  <button id="btnRedo" disabled title="Ctrl+Y">Redo</button>
+  <button id="btnFit" disabled>Fit view</button>
+  <button id="btnTxt" disabled title="x,y per LED - the file wledMapper reads">Export calibration.txt</button>
+  <button id="btnJson" disabled title="Keeps the detections, your corrections and the threshold, so you can continue later">Save session (.json)</button>
+  <span class="name" id="fileName"></span>
+</header>
+<main>
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="empty"><div>
+      <p><b>Open a calibration file</b> or drop it anywhere on this page.</p>
+      <p>Works with <b>calibration.txt</b> (x,y per line) and with the <b>calibration.json</b> written by
+      calibrate_video.py, which also carries the detection quality of every LED. Drop the
+      <b>_reference.jpg</b> as well to see the points on top of the camera picture.</p>
+    </div></div>
+    <div id="tip"></div>
+  </div>
+  <aside>
+    <section>
+      <h2>Confidence threshold</h2>
+      <div class="row">
+        <input type="range" id="thr" min="0" max="1" step="0.01" value="0.5">
+        <span id="thrVal">0.50</span>
+      </div>
+      <canvas id="hist" title="How many LEDs have which confidence. Left of the line is rejected."></canvas>
+      <p class="hint">LEDs below the threshold are not trusted. Their position is calculated from accepted LEDs instead.</p>
+      <div class="row">
+        <select id="fill" title="How the position of a rejected LED is calculated">
+          <option value="between">Place between the accepted LEDs before and after</option>
+          <option value="previous">Average of the last two accepted LEDs before it</option>
+        </select>
+      </div>
+    </section>
+    <section>
+      <h2>LEDs</h2>
+      <div class="counts">
+        <span><i class="swatch" style="background:#49c46b;border-radius:50%"></i>Accepted</span><span id="nOk">0</span>
+        <span><i class="swatch" style="border:2px solid #4cc9f0;transform:rotate(45deg)"></i>Calculated (below threshold)</span><span id="nFill">0</span>
+        <span><i class="swatch" style="background:#fff;border-radius:50%"></i>Moved by hand</span><span id="nMan">0</span>
+      </div>
+      <p class="hint">Dot colour shows confidence, red (0) to green (1). Drag a point to correct it, double-click to undo that correction. Drag the background to pan, scroll or pinch to zoom, arrow keys nudge the selected LED.</p>
+    </section>
+    <section>
+      <h2>Show</h2>
+      <label class="chk"><input type="checkbox" id="showChain" checked> Chain line</label>
+      <label class="chk"><input type="checkbox" id="showLabels" checked> LED numbers</label>
+      <label class="chk"><input type="checkbox" id="showGhosts" checked> Detected position of rejected / moved LEDs</label>
+      <label class="chk"><input type="checkbox" id="showBg" checked> Background image</label>
+    </section>
+    <section>
+      <h2>Selected LED</h2>
+      <div id="detail"><span class="hint">Click a point.</span></div>
+    </section>
+    <section>
+      <h2>Below threshold</h2>
+      <div id="rejected"></div>
+    </section>
+  </aside>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const cv = $("cv"), ctx = cv.getContext("2d"), stage = $("stage"), tip = $("tip");
+
+// One entry per LED: x,y = detected position, mx,my = position after a manual move (or null),
+// force = always treat as rejected, src = the fields the file had for this point.
+const state = { pts: [], meta: {}, name: "", threshold: 0.5, fill: "between",
+                sel: -1, hover: -1, bg: null, dirty: false };
+let calc = { n: 0 };
+const view = { k: 1, ox: 0, oy: 0 };
+const undoStack = [], redoStack = [];
+
+// ---------------------------------------------------------------- confidence and filling
+
+function recompute() {
+  const pts = state.pts, n = pts.length;
+  const bx = new Float64Array(n), by = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const p = pts[i];
+    bx[i] = p.mx != null ? p.mx : p.x;
+    by[i] = p.mx != null ? p.my : p.y;
+  }
+  const dist = (i, j) => Math.hypot(bx[i] - bx[j], by[i] - by[j]);
+
+  // How far LED i is from where the chain says it should be. An LED k places away can be
+  // about k spacings away; measure how many spacings further than that it is. Compare with
+  // up to three neighbours on each side and take the lower median, so that one or two bad
+  // neighbours do not drag a good LED down.
+  const offChain = (i, spacing) => {
+    const r = [];
+    for (let j = Math.max(0, i - 3); j <= Math.min(n - 1, i + 3); j++) {
+      if (j !== i) r.push(Math.max(0, dist(i, j) / spacing - (Math.abs(i - j) - 1)));
+    }
+    r.sort((a, b) => a - b);
+    return r.length ? r[(r.length - 1) >> 1] : 0;
+  };
+  // How many LEDs that are not chain neighbours sit on (nearly) the same spot
+  const sharedSpot = (i, radius) => {
+    let others = 0;
+    if (n <= 4000) {
+      for (let j = 0; j < n; j++) if (Math.abs(i - j) > 1 && dist(i, j) < radius) others++;
+    }
+    return others;
+  };
+
+  // Typical distance between neighbouring LEDs on the chain
+  const median = list => { list.sort((a, b) => a - b); return list[list.length >> 1]; };
+  const step = new Float64Array(Math.max(0, n - 1));
+  for (let i = 0; i + 1 < n; i++) step[i] = dist(i, i + 1);
+  const all = Array.from(step).filter(d => d > 0);
+  const globalSpacing = all.length ? median(all) : 1;
+  // The spacing seen by the camera varies along the chain (perspective, bends), so every
+  // LED is judged against the spacing in its own part of the chain. Detections that are
+  // obviously wrong are left out of that estimate, otherwise a stretch with many bad
+  // detections would look like a stretch with wide spacing.
+  const gross = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    if (offChain(i, globalSpacing) > 6 || sharedSpot(i, 0.2 * globalSpacing) >= 2) gross[i] = 1;
+  }
+  const local = new Float64Array(n);
+  for (let i = 0; i < n; i++) {
+    const near = [];
+    for (let j = Math.max(0, i - 8); j <= Math.min(n - 2, i + 7); j++) {
+      if (step[j] > 0 && !gross[j] && !gross[j + 1]) near.push(step[j]);
+    }
+    local[i] = near.length >= 4 ? Math.max(median(near), 0.25 * globalSpacing) : globalSpacing;
+  }
+
+  const cont = new Float64Array(n), rep = new Float64Array(n), det = new Float64Array(n),
+        conf = new Float64Array(n), ratio = new Float64Array(n), twins = new Int32Array(n);
+  for (let i = 0; i < n; i++) {
+    // Continuity: an LED should be close to the LEDs next to it on the chain
+    ratio[i] = offChain(i, local[i]);
+    cont[i] = ratio[i] <= 2 ? 1 : Math.max(0, 1 - (ratio[i] - 2) / 2);
+
+    // Repeats: a detection that fails tends to land on the same bright spot again and again.
+    // Several LEDs that are not chain neighbours sharing one spot is suspicious.
+    twins[i] = sharedSpot(i, 0.2 * Math.min(local[i], globalSpacing));
+    rep[i] = twins[i] <= 1 ? 1 : 1 / twins[i];
+
+    const d = pts[i].src.detection;
+    det[i] = typeof d === "number" && isFinite(d) ? Math.min(1, Math.max(0, d)) : 1;
+    conf[i] = det[i] * cont[i] * rep[i];
+  }
+
+  // Accept or reject, then calculate positions for the rejected ones
+  const acc = new Uint8Array(n), status = new Array(n);
+  for (let i = 0; i < n; i++) {
+    const p = pts[i];
+    if (p.mx != null) { acc[i] = 1; status[i] = "manual"; }
+    else if (!p.force && conf[i] >= state.threshold) { acc[i] = 1; status[i] = "ok"; }
+    else status[i] = "filled";
+  }
+  const prevA = new Int32Array(n), nextA = new Int32Array(n);
+  for (let i = 0, last = -1; i < n; i++) { prevA[i] = last; if (acc[i]) last = i; }
+  for (let i = n - 1, next = -1; i >= 0; i--) { nextA[i] = next; if (acc[i]) next = i; }
+  const fx = new Float64Array(n), fy = new Float64Array(n), from = new Array(n);
+  for (let i = 0; i < n; i++) {
+    fx[i] = bx[i]; fy[i] = by[i]; from[i] = null;
+    if (acc[i]) continue;
+    const a = prevA[i], b = nextA[i];
+    if (state.fill === "between") {
+      if (a >= 0 && b >= 0) {
+        const t = (i - a) / (b - a);
+        fx[i] = bx[a] + (bx[b] - bx[a]) * t; fy[i] = by[a] + (by[b] - by[a]) * t; from[i] = [a, b];
+      } else if (a >= 0) { fx[i] = bx[a]; fy[i] = by[a]; from[i] = [a]; }
+      else if (b >= 0) { fx[i] = bx[b]; fy[i] = by[b]; from[i] = [b]; }
+    } else {
+      const a2 = a >= 0 ? prevA[a] : -1;
+      if (a >= 0 && a2 >= 0) {
+        fx[i] = (bx[a] + bx[a2]) / 2; fy[i] = (by[a] + by[a2]) / 2; from[i] = [a2, a];
+      } else if (a >= 0) { fx[i] = bx[a]; fy[i] = by[a]; from[i] = [a]; }
+      else if (b >= 0) { fx[i] = bx[b]; fy[i] = by[b]; from[i] = [b]; }
+    }
+  }
+  calc = { n, bx, by, fx, fy, cont, rep, det, conf, ratio, twins, status, from, spacing: globalSpacing };
+}
+
+// ---------------------------------------------------------------- loading and saving
+
+function parseCalibration(text, name) {
+  const trimmed = text.trim();
+  if (trimmed.startsWith("{")) {
+    const data = JSON.parse(trimmed);
+    if (!Array.isArray(data.points)) throw new Error("this JSON file has no \"points\" list");
+    const pts = data.points.map((p, i) => {
+      if (typeof p.x !== "number" || typeof p.y !== "number" || !isFinite(p.x) || !isFinite(p.y))
+        throw new Error("point " + i + " has no numeric x and y");
+      const src = Object.assign({}, p);
+      delete src.mx; delete src.my; delete src.force;
+      const moved = typeof p.mx === "number" && typeof p.my === "number";
+      return { x: p.x, y: p.y, mx: moved ? p.mx : null, my: moved ? p.my : null, force: !!p.force, src };
+    });
+    const meta = Object.assign({}, data);
+    delete meta.points; delete meta.viewer;
+    return { pts, meta, viewer: data.viewer || {} };
+  }
+  const pts = [];
+  trimmed.split(/\r?\n/).forEach((line, i) => {
+    if (!line.trim()) return;
+    const parts = line.split(/[,;\t]/).map(s => parseFloat(s));
+    if (parts.length < 2 || !isFinite(parts[0]) || !isFinite(parts[1]))
+      throw new Error("line " + (i + 1) + " is not \"x,y\": " + line.slice(0, 40));
+    pts.push({ x: parts[0], y: parts[1], mx: null, my: null, force: false, src: { x: parts[0], y: parts[1] } });
+  });
+  return { pts, meta: {}, viewer: {} };
+}
+
+function loadCalibration(text, name) {
+  let parsed;
+  try { parsed = parseCalibration(text, name); }
+  catch (err) { alert("Could not read " + name + ":\n" + err.message); return; }
+  if (!parsed.pts.length) { alert(name + " contains no points."); return; }
+  if (state.dirty && !confirm("Discard the unsaved corrections to " + state.name + "?")) return;
+  state.pts = parsed.pts; state.meta = parsed.meta; state.name = name;
+  state.sel = -1; state.hover = -1; state.dirty = false;
+  undoStack.length = 0; redoStack.length = 0;
+  if (typeof parsed.viewer.threshold === "number")
+    state.threshold = Math.min(1, Math.max(0, parsed.viewer.threshold));
+  if (parsed.viewer.fill === "between" || parsed.viewer.fill === "previous") state.fill = parsed.viewer.fill;
+  $("thr").value = state.threshold; $("fill").value = state.fill;
+  $("fileName").textContent = name + " - " + parsed.pts.length + " LEDs";
+  $("empty").style.display = "none";
+  for (const id of ["btnFit", "btnTxt", "btnJson"]) $(id).disabled = false;
+  recompute(); fitView(); refresh();
+}
+
+function loadBackground(file) {
+  const img = new Image();
+  img.onload = () => { state.bg = img; if (state.pts.length) fitView(); draw(); };
+  img.onerror = () => alert("Could not read " + file.name + " as an image.");
+  img.src = URL.createObjectURL(file);
+}
+
+function handleFiles(files) {
+  for (const file of files) {
+    if (file.type.startsWith("image/")) loadBackground(file);
+    else file.text().then(text => loadCalibration(text, file.name));
+  }
+}
+
+function download(name, text, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function exportTxt() {
+  let out = "";
+  for (let i = 0; i < calc.n; i++) out += Math.round(calc.fx[i]) + "," + Math.round(calc.fy[i]) + "\n";
+  download("calibration.txt", out, "text/plain");
+}
+
+function exportJson() {
+  const points = state.pts.map(p => {
+    const o = Object.assign({}, p.src);
+    if (p.mx != null) { o.mx = p.mx; o.my = p.my; }
+    if (p.force) o.force = true;
+    return o;
+  });
+  const data = Object.assign({ format: "led-2d-mapping-calibration", version: 1 }, state.meta,
+    { viewer: { threshold: state.threshold, fill: state.fill }, points });
+  download("calibration.json", JSON.stringify(data, null, 1), "application/json");
+  state.dirty = false;
+}
+
+// ---------------------------------------------------------------- editing
+
+function snapshot() { return state.pts.map(p => [p.mx, p.my, p.force]); }
+function restore(snap) { snap.forEach((s, i) => { const p = state.pts[i]; p.mx = s[0]; p.my = s[1]; p.force = s[2]; }); }
+function pushUndo() {
+  undoStack.push(snapshot()); if (undoStack.length > 200) undoStack.shift();
+  redoStack.length = 0; state.dirty = true;
+}
+function undo() { if (!undoStack.length) return; redoStack.push(snapshot()); restore(undoStack.pop()); recompute(); refresh(); }
+function redo() { if (!redoStack.length) return; undoStack.push(snapshot()); restore(redoStack.pop()); recompute(); refresh(); }
+
+function movePoint(i, x, y) {
+  const p = state.pts[i];
+  p.mx = Math.round(x * 10) / 10; p.my = Math.round(y * 10) / 10; p.force = false;
+}
+function resetPoint(i) {
+  const p = state.pts[i];
+  if (p.mx == null && !p.force) return;
+  pushUndo(); p.mx = p.my = null; p.force = false; recompute(); refresh();
+}
+function toggleForce(i) {
+  const p = state.pts[i];
+  pushUndo(); p.force = !p.force; if (p.force) p.mx = p.my = null; recompute(); refresh();
+}
+
+// ---------------------------------------------------------------- view
+
+function extent() {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  const add = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
+  for (let i = 0; i < calc.n; i++) { add(calc.fx[i], calc.fy[i]); add(state.pts[i].x, state.pts[i].y); }
+  const f = frameSize();
+  if (f) { add(0, 0); add(f.w, f.h); }
+  return { x0, y0, x1, y1 };
+}
+// Size of the camera picture the coordinates refer to, when known
+function frameSize() {
+  if (state.meta.width > 0 && state.meta.height > 0) return { w: state.meta.width, h: state.meta.height };
+  if (state.bg) return { w: state.bg.naturalWidth, h: state.bg.naturalHeight };
+  return null;
+}
+function fitView() {
+  if (!calc.n) return;
+  const e = extent(), w = stage.clientWidth, h = stage.clientHeight, pad = 40;
+  const ew = Math.max(e.x1 - e.x0, 1), eh = Math.max(e.y1 - e.y0, 1);
+  view.k = Math.max(1e-4, Math.min((w - 2 * pad) / ew, (h - 2 * pad) / eh));
+  view.ox = w / 2 - (e.x0 + e.x1) / 2 * view.k;
+  view.oy = h / 2 - (e.y0 + e.y1) / 2 * view.k;
+  draw();
+}
+const sx = x => x * view.k + view.ox, sy = y => y * view.k + view.oy;
+const wx = x => (x - view.ox) / view.k, wy = y => (y - view.oy) / view.k;
+function zoomAt(px, py, factor) {
+  const k = Math.min(500, Math.max(1e-4, view.k * factor));
+  const x = wx(px), y = wy(py);
+  view.k = k; view.ox = px - x * k; view.oy = py - y * k;
+}
+function centerOn(i) {
+  view.ox = stage.clientWidth / 2 - calc.fx[i] * view.k;
+  view.oy = stage.clientHeight / 2 - calc.fy[i] * view.k;
+}
+
+// ---------------------------------------------------------------- drawing
+
+const confColor = c => "hsl(" + Math.round(120 * Math.min(1, Math.max(0, c))) + " 75% 52%)";
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.max(1, Math.round(stage.clientWidth * dpr));
+  cv.height = Math.max(1, Math.round(stage.clientHeight * dpr));
+  draw();
+}
+
+function draw() {
+  const dpr = window.devicePixelRatio || 1, w = stage.clientWidth, h = stage.clientHeight;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = "#14161a"; ctx.fillRect(0, 0, w, h);
+  if (!calc.n) return;
+
+  const f = frameSize();
+  if (state.bg && $("showBg").checked && f) {
+    ctx.globalAlpha = 0.55;
+    ctx.drawImage(state.bg, sx(0), sy(0), f.w * view.k, f.h * view.k);
+    ctx.globalAlpha = 1;
+  }
+
+  // Grid in camera pixels
+  const raw = 90 / view.k, pow = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / pow;
+  const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * pow;
+  ctx.lineWidth = 1; ctx.font = "11px system-ui, sans-serif"; ctx.textBaseline = "top";
+  for (let gx = Math.ceil(wx(0) / step) * step; gx <= wx(w); gx += step) {
+    const x = Math.round(sx(gx)) + 0.5;
+    ctx.strokeStyle = Math.abs(gx) < step / 2 ? "#59606e" : "#2a2e37";
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    ctx.fillStyle = "#7d8593"; ctx.textAlign = "left"; ctx.fillText(String(Math.round(gx)), x + 3, 3);
+  }
+  for (let gy = Math.ceil(wy(0) / step) * step; gy <= wy(h); gy += step) {
+    const y = Math.round(sy(gy)) + 0.5;
+    ctx.strokeStyle = Math.abs(gy) < step / 2 ? "#59606e" : "#2a2e37";
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    ctx.fillStyle = "#7d8593"; ctx.textAlign = "left"; ctx.fillText(String(Math.round(gy)), 3, y + 3);
+  }
+  if (f) { ctx.strokeStyle = "#7d8593"; ctx.strokeRect(sx(0) + 0.5, sy(0) + 0.5, f.w * view.k, f.h * view.k); }
+
+  const n = calc.n, { fx, fy, status, conf } = calc;
+  if ($("showChain").checked) {
+    ctx.strokeStyle = "rgba(200,210,230,0.35)"; ctx.lineWidth = 1.2; ctx.beginPath();
+    for (let i = 0; i < n; i++) { if (i) ctx.lineTo(sx(fx[i]), sy(fy[i])); else ctx.moveTo(sx(fx[i]), sy(fy[i])); }
+    ctx.stroke();
+  }
+
+  // Where rejected and hand-moved LEDs were detected
+  if ($("showGhosts").checked) {
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < n; i++) {
+      if (status[i] === "ok") continue;
+      const gx = sx(state.pts[i].x), gy = sy(state.pts[i].y), px = sx(fx[i]), py = sy(fy[i]);
+      ctx.strokeStyle = status[i] === "manual" ? "rgba(255,255,255,0.45)" : "rgba(255,90,90,0.6)";
+      ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(px, py); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(gx - 4, gy - 4); ctx.lineTo(gx + 4, gy + 4); ctx.moveTo(gx + 4, gy - 4); ctx.lineTo(gx - 4, gy + 4); ctx.stroke();
+    }
+  }
+
+  for (let i = 0; i < n; i++) {
+    const x = sx(fx[i]), y = sy(fy[i]);
+    if (x < -20 || y < -20 || x > w + 20 || y > h + 20) continue;
+    if (status[i] === "filled") {
+      ctx.strokeStyle = "#4cc9f0"; ctx.lineWidth = 2; ctx.fillStyle = "#14161a";
+      ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x + 6, y); ctx.lineTo(x, y + 6); ctx.lineTo(x - 6, y); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+    } else if (status[i] === "manual") {
+      ctx.fillStyle = "#fff"; ctx.strokeStyle = "#14161a"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(x, y, 5.5, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    } else {
+      ctx.fillStyle = confColor(conf[i]); ctx.strokeStyle = "#14161a"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(x, y, 5, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    }
+  }
+  for (const [i, color] of [[state.hover, "rgba(255,255,255,0.6)"], [state.sel, "#5aa9ff"]]) {
+    if (i < 0 || i >= n) continue;
+    ctx.strokeStyle = color; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(sx(fx[i]), sy(fy[i]), 10, 0, 2 * Math.PI); ctx.stroke();
+  }
+
+  // LED numbers, thinned out so they stay readable when zoomed out
+  ctx.font = "11px system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  let every = 0;
+  if ($("showLabels").checked) {
+    every = 1000;
+    for (const e of [1, 2, 5, 10, 20, 50, 100, 200, 500]) { if (e * calc.spacing * view.k >= 30) { every = e; break; } }
+  }
+  for (let i = 0; i < n; i++) {
+    if (!((every && i % every === 0) || i === state.sel || i === state.hover)) continue;
+    const x = sx(fx[i]) + 9, y = sy(fy[i]) - 9, label = String(i);
+    ctx.lineWidth = 3; ctx.strokeStyle = "#14161a"; ctx.strokeText(label, x, y);
+    ctx.fillStyle = i === state.sel ? "#5aa9ff" : "#e6e8ec"; ctx.fillText(label, x, y);
+  }
+}
+
+function drawHistogram() {
+  const c = $("hist"), dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+  c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+  const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const bins = new Array(25).fill(0);
+  for (let i = 0; i < calc.n; i++) bins[Math.min(24, Math.floor(calc.conf[i] * 25))]++;
+  // square-root height so a few bad LEDs stay visible next to hundreds of good ones
+  const top = Math.sqrt(Math.max(1, ...bins));
+  bins.forEach((count, b) => {
+    if (!count) return;
+    const bh = Math.max(2, Math.sqrt(count) / top * (h - 4));
+    g.fillStyle = confColor((b + 0.5) / 25);
+    g.fillRect(b * w / 25 + 1, h - bh, w / 25 - 2, bh);
+  });
+  const x = Math.round(state.threshold * w) + 0.5;
+  g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke();
+}
+
+// ---------------------------------------------------------------- side panel
+
+const fmt = v => (Math.round(v * 10) / 10).toString();
+const statusText = { ok: "Accepted", filled: "Calculated", manual: "Moved by hand" };
+
+function describe(i) {
+  const p = state.pts[i], c = calc, rows = [];
+  rows.push(["Status", statusText[c.status[i]] + (p.force ? " (always)" : "")]);
+  rows.push(["Position", fmt(c.fx[i]) + ", " + fmt(c.fy[i])]);
+  if (c.status[i] !== "ok") rows.push(["Detected at", fmt(p.x) + ", " + fmt(p.y)]);
+  if (c.status[i] === "filled" && c.from[i])
+    rows.push(["Calculated from", c.from[i].map(j => "LED " + j).join(c.from[i].length > 1 ? " and " : "")]);
+  rows.push(["Confidence", c.conf[i].toFixed(2)]);
+  if (typeof p.src.detection === "number") {
+    rows.push(["Detection in video", c.det[i].toFixed(2), 1]);
+    for (const [key, label] of [["strength", "brightness"], ["uniqueness", "only bright spot"], ["stability", "steady across frames"]])
+      if (typeof p.src[key] === "number") rows.push(["- " + label, p.src[key].toFixed(2), 1]);
+  }
+  rows.push(["Fits its chain neighbours", c.cont[i].toFixed(2) + "  (" + fmt(c.ratio[i]) + " spacings away)", 1]);
+  rows.push(["Spot not shared", c.rep[i].toFixed(2) + (c.twins[i] ? "  (" + c.twins[i] + " other LEDs here)" : ""), 1]);
+  if (i > 0) rows.push(["To LED " + (i - 1), fmt(Math.hypot(c.fx[i] - c.fx[i - 1], c.fy[i] - c.fy[i - 1])) + " px"]);
+  if (i + 1 < c.n) rows.push(["To LED " + (i + 1), fmt(Math.hypot(c.fx[i] - c.fx[i + 1], c.fy[i] - c.fy[i + 1])) + " px"]);
+  return rows;
+}
+
+function updatePanel() {
+  const n = calc.n;
+  let ok = 0, filled = 0, manual = 0;
+  for (let i = 0; i < n; i++) { const s = calc.status[i]; if (s === "ok") ok++; else if (s === "filled") filled++; else manual++; }
+  $("nOk").textContent = ok; $("nFill").textContent = filled; $("nMan").textContent = manual;
+  $("thrVal").textContent = state.threshold.toFixed(2);
+  $("btnUndo").disabled = !undoStack.length; $("btnRedo").disabled = !redoStack.length;
+  drawHistogram();
+
+  const detail = $("detail"); detail.textContent = "";
+  if (state.sel >= 0 && state.sel < n) {
+    const i = state.sel, p = state.pts[i];
+    const head = document.createElement("div"); head.style.fontWeight = "600"; head.textContent = "LED " + i;
+    const table = document.createElement("table");
+    for (const [label, value, sub] of describe(i)) {
+      const tr = table.insertRow(), a = tr.insertCell(), b = tr.insertCell();
+      a.textContent = label; b.textContent = value; if (sub) a.className = "sub";
+    }
+    const actions = document.createElement("div"); actions.className = "actions";
+    const reset = document.createElement("button"); reset.textContent = "Back to detected position";
+    reset.disabled = p.mx == null; reset.onclick = () => resetPoint(i);
+    const force = document.createElement("button");
+    force.textContent = p.force ? "Stop always calculating" : "Always calculate this LED";
+    force.title = "Reject this LED whatever its confidence, and calculate its position from accepted LEDs";
+    force.onclick = () => toggleForce(i);
+    actions.append(reset, force);
+    detail.append(head, table, actions);
+  } else {
+    const hint = document.createElement("span"); hint.className = "hint";
+    hint.textContent = n ? "Click a point." : "No file loaded.";
+    detail.append(hint);
+  }
+
+  const list = $("rejected"); list.textContent = "";
+  let shown = 0;
+  for (let i = 0; i < n; i++) {
+    if (calc.status[i] !== "filled") continue;
+    if (shown++ >= 400) { list.append(document.createTextNode(" ...")); break; }
+    const b = document.createElement("button"); b.textContent = i;
+    b.title = "confidence " + calc.conf[i].toFixed(2);
+    b.onclick = () => { state.sel = i; centerOn(i); refresh(); };
+    list.append(b);
+  }
+  if (!shown) { const s = document.createElement("span"); s.className = "hint"; s.textContent = n ? "None." : ""; list.append(s); }
+}
+
+function refresh() { updatePanel(); draw(); }
+
+function showTip(i, px, py) {
+  if (i < 0) { tip.style.display = "none"; return; }
+  tip.textContent = "LED " + i + "\n" + describe(i).map(r => (r[2] ? "  " : "") + r[0] + ": " + r[1]).join("\n");
+  tip.style.display = "block";
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  tip.style.left = Math.max(4, Math.min(px + 16, stage.clientWidth - tw - 4)) + "px";
+  tip.style.top = Math.max(4, Math.min(py + 16, stage.clientHeight - th - 4)) + "px";
+}
+
+// ---------------------------------------------------------------- pointer input
+
+function hitTest(px, py, radius) {
+  let best = -1, bestD = radius;
+  for (let i = 0; i < calc.n; i++) {
+    const d = Math.hypot(sx(calc.fx[i]) - px, sy(calc.fy[i]) - py);
+    // the selected point wins ties so overlapping points stay draggable one at a time
+    if (d < bestD || (d <= radius && i === state.sel && d <= bestD + 2)) { best = i; bestD = d; }
+  }
+  return best;
+}
+const pointers = new Map();
+let drag = null;
+const local = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+
+cv.addEventListener("pointerdown", e => {
+  if (!calc.n || (e.pointerType === "mouse" && e.button !== 0)) return;
+  cv.setPointerCapture(e.pointerId);
+  const p = local(e); pointers.set(e.pointerId, p);
+  showTip(-1);
+  if (pointers.size === 2) {
+    const [a, b] = [...pointers.values()];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    drag = { type: "pinch", d0: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), k0: view.k, wx: wx(mx), wy: wy(my) };
+    return;
+  }
+  if (pointers.size > 2) return;
+  const hit = hitTest(p.x, p.y, e.pointerType === "touch" ? 22 : 12);
+  if (hit >= 0) {
+    state.sel = hit;
+    drag = { type: "point", i: hit, sx: p.x, sy: p.y, moved: false, dx: calc.fx[hit] - wx(p.x), dy: calc.fy[hit] - wy(p.y) };
+    refresh();
+  } else {
+    drag = { type: "pan", sx: p.x, sy: p.y, ox: view.ox, oy: view.oy, moved: false };
+  }
+});
+
+cv.addEventListener("pointermove", e => {
+  const p = local(e);
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, p);
+  if (!drag) {
+    if (e.pointerType === "touch") return;
+    const hit = calc.n ? hitTest(p.x, p.y, 12) : -1;
+    cv.style.cursor = hit >= 0 ? "pointer" : "grab";
+    if (hit !== state.hover) { state.hover = hit; draw(); }
+    showTip(hit, p.x, p.y);
+    return;
+  }
+  if (drag.type === "pinch") {
+    if (pointers.size < 2) return;
+    const [a, b] = [...pointers.values()];
+    const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    view.k = Math.min(500, Math.max(1e-4, drag.k0 * Math.hypot(a.x - b.x, a.y - b.y) / drag.d0));
+    view.ox = mx - drag.wx * view.k; view.oy = my - drag.wy * view.k;
+    draw();
+  } else if (drag.type === "point") {
+    if (!drag.moved && Math.hypot(p.x - drag.sx, p.y - drag.sy) < 4) return;
+    if (!drag.moved) { pushUndo(); drag.moved = true; cv.style.cursor = "grabbing"; }
+    movePoint(drag.i, wx(p.x) + drag.dx, wy(p.y) + drag.dy);
+    recompute(); refresh();
+  } else {
+    if (!drag.moved && Math.hypot(p.x - drag.sx, p.y - drag.sy) < 4) return;
+    drag.moved = true; cv.style.cursor = "grabbing";
+    view.ox = drag.ox + p.x - drag.sx; view.oy = drag.oy + p.y - drag.sy;
+    draw();
+  }
+});
+
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (!drag) return;
+  if (drag.type === "pinch") { if (pointers.size < 2) drag = null; return; }
+  if (drag.type === "pan" && !drag.moved && state.sel >= 0) { state.sel = -1; refresh(); }
+  drag = null; cv.style.cursor = "grab";
+}
+cv.addEventListener("pointerup", endPointer);
+cv.addEventListener("pointercancel", endPointer);
+cv.addEventListener("pointerleave", () => { if (!drag) { showTip(-1); if (state.hover >= 0) { state.hover = -1; draw(); } } });
+
+cv.addEventListener("dblclick", e => {
+  const p = local(e), hit = calc.n ? hitTest(p.x, p.y, 12) : -1;
+  if (hit >= 0) resetPoint(hit);
+});
+cv.addEventListener("wheel", e => {
+  if (!calc.n) return;
+  e.preventDefault();
+  const p = local(e);
+  zoomAt(p.x, p.y, Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015)));
+  showTip(-1); draw();
+}, { passive: false });
+
+// ---------------------------------------------------------------- other input
+
+$("thr").addEventListener("input", e => { state.threshold = parseFloat(e.target.value); recompute(); refresh(); });
+$("fill").addEventListener("change", e => { state.fill = e.target.value; recompute(); refresh(); });
+for (const id of ["showChain", "showLabels", "showGhosts", "showBg"]) $(id).addEventListener("change", draw);
+$("btnUndo").onclick = undo; $("btnRedo").onclick = redo; $("btnFit").onclick = fitView;
+$("btnTxt").onclick = exportTxt; $("btnJson").onclick = exportJson;
+$("fileCal").addEventListener("change", e => { handleFiles(e.target.files); e.target.value = ""; });
+$("fileBg").addEventListener("change", e => { handleFiles(e.target.files); e.target.value = ""; });
+
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", e => { e.preventDefault(); if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files); });
+
+window.addEventListener("keydown", e => {
+  if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== "checkbox") return;
+  const mod = e.ctrlKey || e.metaKey, key = e.key.toLowerCase();
+  if (mod && key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (mod && (key === "y" || (key === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
+  else if (e.key === "Escape") { state.sel = -1; refresh(); }
+  else if (state.sel >= 0 && e.key.startsWith("Arrow")) {
+    e.preventDefault();
+    const d = e.shiftKey ? 10 : 1, i = state.sel;
+    const dx = e.key === "ArrowLeft" ? -d : e.key === "ArrowRight" ? d : 0;
+    const dy = e.key === "ArrowUp" ? -d : e.key === "ArrowDown" ? d : 0;
+    pushUndo(); movePoint(i, calc.fx[i] + dx, calc.fy[i] + dy); recompute(); refresh();
+  }
+});
+window.addEventListener("beforeunload", e => { if (state.dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+new ResizeObserver(resize).observe(stage);
+recompute(); updatePanel(); resize();
+</script>
+</body>
+</html>

@@ -5,6 +5,7 @@ import requests
 import numpy as np
 import random
 import colorsys
+from wledMapper import preview
 
 numberOfLeds = 200
 ip = "192.168.1.85"
@@ -64,8 +65,7 @@ def findHotSpot(image, window) :
     cv2.circle(image, maxLoc, 25, (255, 0, 0), 2)
     # display the results of our newly improved method
     
-    cv2.imshow(window, image)
-    cv2.waitKey(1)
+    preview(window, image)
     return(maxLoc)
      
 

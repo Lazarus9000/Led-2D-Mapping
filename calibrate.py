@@ -1,9 +1,10 @@
 import time
 import cv2
 import os
+from wledMapper import Mapper, preview
 
 #Initiate wledMapper
-wled = Mapper("192.168.1.172", 450, "UDP", "")
+wled = Mapper("192.168.1.172", 600,"UDP", "")
 
 #Method for finding location of LED
 def findHotSpot(image, window) :
@@ -17,8 +18,7 @@ def findHotSpot(image, window) :
     cv2.circle(image, maxLoc, 25, (255, 0, 0), 2)
     # display the results of our newly improved method
     
-    cv2.imshow(window, image)
-    cv2.waitKey(1)
+    preview(window, image)
     return(maxLoc)
      
 #Change number in videocapture if more than one camera is connected to system
@@ -34,14 +34,13 @@ ret, bg = cam.read()
 #img_name = f"./images/bg.png"
 #cv2.imwrite(img_name, bg)
 
-cv2.imshow("Background", bg)
-cv2.waitKey(1)
+preview("Background", bg)
 
 #Arrays for holding LED positions
 x = []
 y = []
 
-for count in range(numberOfLeds):
+for count in range(wled.numberOfLeds):
     #Turn on LED's one at a time
     wled.oneLed(wled.white, count, wled.numberOfLeds)
     
@@ -59,4 +58,4 @@ for count in range(numberOfLeds):
     x.append(hotSpotPos[0])
     y.append(hotSpotPos[1])    
 
-write_arrays_to_file(x, y, "calibration.txt")
+wled.write_arrays_to_file(x, y, "calibration.txt")

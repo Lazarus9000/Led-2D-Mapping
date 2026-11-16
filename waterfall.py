@@ -1,17 +1,19 @@
 import time
 import cv2
 import numpy as np
-from wledMapper import Mapper
+from wledMapper import Mapper, preview, arguments
 import sys
 
 imagepath = "dkdark.png"
 
 #Read image path from args
-if len(sys.argv) == 2:
-    imagepath = sys.argv[1]
+#(the --preview switch is handled by wledMapper and is not counted here)
+args = arguments()
+if len(args) == 1:
+    imagepath = args[0]
 
 #Initiate wledMapper
-wled = Mapper("192.168.1.172", 450, "UDP", "calibration.txt")
+wled = Mapper("192.168.1.172", 600,"UDP", "calibration.txt")
 
 #Load image
 inputimg = cv2.imread(imagepath)
@@ -46,6 +48,5 @@ while 1 > 0:
 	wled.image(img2,25)
 	#print(animate)
 	
-	#cv2.imshow("Background", img2)
-	#cv2.waitKey(1)
+	preview("Background", img2)
 	time.sleep(0.05)

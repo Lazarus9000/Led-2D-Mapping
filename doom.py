@@ -18,10 +18,10 @@ from typing import Optional
 import cv2
 import numpy as np
 import pygame
-from wledMapper import Mapper
+from wledMapper import Mapper, preview
 import cydoomgeneric as cdg
 
-wled = Mapper("192.168.1.172", 450, "UDP", "calibration.txt")
+wled = Mapper("192.168.1.172", 600,"UDP", "calibration.txt")
 
 keymap = {
     pygame.K_LEFT: cdg.Keys.LEFTARROW,
@@ -47,8 +47,7 @@ class PygameDoom:
         self._screen = pygame.display.set_mode((self._resx, self._resy))
 
     def draw_frame(self, pixels: np.ndarray) -> None:
-        cv2.imshow("Background", pixels)
-        cv2.waitKey(1)
+        preview("Background", pixels)
         wled.image(pixels,10)
         pixels = np.rot90(pixels)
         pixels = np.flipud(pixels)
